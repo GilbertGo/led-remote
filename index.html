@@ -8,16 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #ECE9F4;
-    --ink: #241C4A;
-    --muted: #6B6590;
-    --panel: #221A45;
-    --led: #6D6BFF;
-    --led-glow: rgba(109,107,255,.55);
-    --amber: #FFB547;
-    --card: #FFFFFF;
-    --line: #D6D1E6;
-    --danger: #C8364B;
+    --bg: #ECE9F4; --ink: #241C4A; --muted: #6B6590; --panel: #221A45;
+    --led: #6D6BFF; --led-glow: rgba(109,107,255,.55); --amber: #FFB547;
+    --card: #FFFFFF; --line: #D6D1E6; --danger: #C8364B;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -35,20 +28,14 @@
     font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
     line-height: 1.55;
   }
-  main { max-width: 480px; margin: 0 auto; padding: 20px 18px 40px; }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 18px 40px; }
   h1 { font-size: 1.5rem; margin: 4px 0 16px; font-weight: 700; letter-spacing: -0.01em; }
 
-  /* dot-matrix status display */
-  .display {
-    background: var(--panel); border-radius: 14px; padding: 14px;
-    display: grid; gap: 10px;
-  }
+  .display { background: var(--panel); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
   .dots {
-    height: 44px;
+    height: 44px; border-radius: 6px;
     background-image: radial-gradient(circle, rgba(255,255,255,.12) 2.2px, transparent 2.6px);
     background-size: 9px 9px;
-    border-radius: 6px;
-    transition: background-image .3s;
   }
   .display.on .dots {
     background-image: radial-gradient(circle, var(--led) 2.4px, transparent 2.8px);
@@ -57,25 +44,47 @@
   .status { color: #CFCBEA; font-size: .95rem; }
   .display.on .status { color: #fff; }
 
-  section { margin-top: 22px; }
+  section { margin-top: 24px; }
   h2 { font-size: 1.05rem; margin: 0 0 10px; font-weight: 600; }
-  button {
+  button, select {
     font: inherit; font-weight: 600; font-size: 1rem;
-    border: 0; border-radius: 12px; padding: 14px 16px; cursor: pointer;
-    min-height: 52px;
+    border: 0; border-radius: 12px; padding: 12px 14px; cursor: pointer; min-height: 48px;
   }
-  button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
   button:disabled { opacity: .4; cursor: not-allowed; }
-  .primary { width: 100%; background: var(--led); color: #fff; }
+  .primary { width: 100%; background: var(--led); color: #fff; min-height: 52px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .on-btn { background: var(--amber); color: #3A2600; }
-  .off-btn { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); }
+  .plain { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); }
   .link { background: none; color: var(--muted); padding: 8px 0; min-height: 0; font-weight: 400; text-decoration: underline; }
 
-  .bright { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .box { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; }
   .bright-top { display: flex; justify-content: space-between; align-items: baseline; }
   .bright-val { font-size: 1.4rem; font-weight: 700; }
   input[type=range] { width: 100%; accent-color: var(--led); height: 32px; }
+
+  .size-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  select { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); font-weight: 400; }
+
+  /* drawing board */
+  .board-wrap { background: var(--panel); border-radius: 12px; padding: 8px; margin-top: 12px; }
+  canvas#board { display: block; width: 100%; touch-action: none; image-rendering: pixelated; border-radius: 4px; }
+  .palette { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .swatch {
+    width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50%;
+    border: 3px solid transparent; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+  .swatch[aria-pressed="true"] { border-color: var(--ink); }
+  .swatch.eraser { background: var(--card) !important; color: var(--ink); font-size: .75rem; box-shadow: inset 0 0 0 1.5px var(--line); }
+  .pen-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .pen-row button { flex: 1; min-height: 42px; padding: 8px; }
+  .pen-row button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .queue { font-size: .88rem; color: var(--muted); margin-top: 8px; min-height: 1.4em; }
+
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-size: .92rem; }
+  details .box { margin-top: 8px; font-size: .92rem; }
+  label.radio { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; }
 
   .log {
     background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
@@ -108,21 +117,62 @@
   <section>
     <h2>전원</h2>
     <div class="row">
-      <button class="on-btn" id="onBtn" disabled>켜기</button>
-      <button class="off-btn" id="offBtn" disabled>끄기</button>
+      <button class="on-btn needs-conn" id="onBtn" disabled>켜기</button>
+      <button class="plain needs-conn" id="offBtn" disabled>끄기</button>
     </div>
   </section>
 
   <section>
     <h2>밝기</h2>
-    <div class="bright">
-      <div class="bright-top">
-        <span>현재 밝기</span>
-        <span class="bright-val"><span id="brightVal">50</span>%</span>
-      </div>
-      <input type="range" id="bright" min="1" max="100" value="50" disabled aria-label="밝기">
+    <div class="box">
+      <div class="bright-top"><span>현재 밝기</span><span class="bright-val"><span id="brightVal">50</span>%</span></div>
+      <input type="range" id="bright" class="needs-conn" min="1" max="100" value="50" disabled aria-label="밝기">
     </div>
     <p class="hint">슬라이더에서 손을 떼면 패널에 적용돼요.</p>
+  </section>
+
+  <section>
+    <h2>그림 그리기</h2>
+    <div class="box">
+      <div class="size-row">
+        <span>패널 크기</span>
+        <select id="width" aria-label="가로 칸 수">
+          <option>32</option><option>64</option><option selected>96</option>
+          <option>128</option><option>144</option><option>192</option>
+        </select>
+        <span>×</span>
+        <select id="height" aria-label="세로 칸 수">
+          <option selected>16</option><option>32</option>
+        </select>
+      </div>
+      <p class="hint">가로 크기를 모르면 "테두리로 크기 확인"을 눌러보세요. 테두리가 패널 가장자리와 딱 맞으면 맞는 크기예요.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="on-btn needs-conn" id="diyOnBtn" disabled>그리기 시작</button>
+        <button class="plain needs-conn" id="diyOffBtn" disabled>그리기 끝내기</button>
+      </div>
+      <button class="plain needs-conn" id="borderBtn" disabled style="width:100%;margin-top:10px">테두리로 크기 확인</button>
+    </div>
+
+    <div class="board-wrap"><canvas id="board" aria-label="그림판"></canvas></div>
+
+    <div class="palette" id="palette" role="group" aria-label="색상"></div>
+    <div class="pen-row" role="group" aria-label="펜 굵기">
+      <span style="font-size:.92rem">펜</span>
+      <button class="plain" data-pen="1" aria-pressed="true">가늘게</button>
+      <button class="plain" data-pen="2" aria-pressed="false">보통</button>
+      <button class="plain" data-pen="3" aria-pressed="false">굵게</button>
+    </div>
+    <button class="plain needs-conn" id="clearBtn" disabled style="width:100%;margin-top:10px">그림 전부 지우기</button>
+    <div class="queue" id="queue"></div>
+
+    <details>
+      <summary>색이 이상하게 나오면 여기를 열어보세요</summary>
+      <div class="box">
+        패널 모델에 따라 점 찍는 명령 형식이 달라요. 흰색을 칠했는데 하늘색이나 다른 색으로 나오면 다른 방식을 골라보세요.
+        <label class="radio"><input type="radio" name="fmt" value="a" checked> <span>방식 A (기본)</span></label>
+        <label class="radio"><input type="radio" name="fmt" value="b"> <span>방식 B</span></label>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -132,17 +182,13 @@
 </main>
 
 <script>
-  // iPixel Color BLE 정보 (공개된 역분석 자료 기준)
-  // 서비스 UUID가 자료마다 달라서 후보를 여러 개 등록하고, 쓰기 채널(fa02)이 있는 서비스를 찾아요.
-  const SERVICES = [0x00fa, 0xfa00, 0xffe0, 0xfff0, 0xae00, 0xfee7];
-  const WRITE  = '0000fa02-0000-1000-8000-00805f9b34fb';
-  const NOTIFY = '0000fa03-0000-1000-8000-00805f9b34fb';
+  // 폰(안드로이드)은 fa00, 윈도우는 000000fa로 보고해서 둘 다 찾음
+  const SERVICES = ['0000fa00-0000-1000-8000-00805f9b34fb', '000000fa-0000-1000-8000-00805f9b34fb'];
 
-  let device = null, writeChar = null, manualDisconnect = false;
+  let device = null, writeChar = null;
   const $ = id => document.getElementById(id);
   const logEl = $('log');
   let firstLog = true;
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function log(msg, isErr) {
     if (firstLog) { logEl.textContent = ''; firstLog = false; }
@@ -151,99 +197,220 @@
     if (isErr) line.className = 'err';
     line.textContent = `[${t}] ${msg}`;
     logEl.prepend(line);
+    while (logEl.childNodes.length > 80) logEl.lastChild.remove();
   }
   const hex = arr => Array.from(arr, b => b.toString(16).padStart(2, '0')).join(' ');
 
   function setConnected(on, name) {
     $('display').classList.toggle('on', on);
     $('status').textContent = on ? `${name || '패널'}에 연결됐어요` : '패널에 연결되지 않았어요';
-    ['onBtn', 'offBtn', 'bright'].forEach(id => $(id).disabled = !on);
+    document.querySelectorAll('.needs-conn').forEach(el => el.disabled = !on);
     $('connectBtn').textContent = on ? '연결 끊기' : '패널 연결하기';
   }
 
-  function onDisconnected() {
-    writeChar = null; setConnected(false);
-    if (!manualDisconnect) log('연결이 끊어졌어요');
-    manualDisconnect = false;
-  }
-
-  async function findWriteChar(server) {
-    const services = await server.getPrimaryServices();
-    log('찾은 서비스: ' + (services.map(s => s.uuid.slice(0, 8)).join(', ') || '없음'));
-    for (const svc of services) {
-      try {
-        const w = await svc.getCharacteristic(WRITE);
-        let n = null;
-        try { n = await svc.getCharacteristic(NOTIFY); } catch (e) {}
-        return { w, n };
-      } catch (e) {}
-    }
-    return null;
-  }
-
   async function connect(acceptAll) {
-    if (device && device.gatt.connected) { manualDisconnect = true; device.gatt.disconnect(); return; }
+    if (device && device.gatt.connected) { device.gatt.disconnect(); return; }
     try {
       const opts = acceptAll
         ? { acceptAllDevices: true, optionalServices: SERVICES }
         : { filters: [{ namePrefix: 'LED_BLE' }], optionalServices: SERVICES };
-      const picked = await navigator.bluetooth.requestDevice(opts);
-      if (picked !== device) {
-        device = picked;
-        device.addEventListener('gattserverdisconnected', onDisconnected);
+      device = await navigator.bluetooth.requestDevice(opts);
+      device.addEventListener('gattserverdisconnected', () => {
+        writeChar = null; queue.length = 0; setConnected(false); log('연결이 끊어졌어요');
+      });
+      log(`${device.name || '이름 없는 기기'}에 연결하는 중…`);
+      // 윈도우에서는 연결 직후 서비스 검색이 실패하는 경우가 있어 몇 번 재시도함
+      let service = null, lastErr = null;
+      for (let i = 1; i <= 4 && !service; i++) {
+        try {
+          const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+          await sleep(400 * i);
+          for (const uuid of SERVICES) {
+            try { service = await server.getPrimaryService(uuid); break; } catch (e2) { lastErr = e2; }
+          }
+          if (!service) throw lastErr;
+        } catch (err) {
+          lastErr = err;
+          log(`연결 시도 ${i}회 실패: ${err.message}`);
+          await sleep(500);
+        }
       }
-    } catch (e) {
-      if (e.name === 'NotFoundError') log('기기 선택을 취소했어요');
-      else log(`기기 찾기 실패 (${e.name}): ${e.message}`, true);
-      return;
-    }
-
-    // 안드로이드는 첫 연결이 자주 끊겨서 최대 3번 시도해요
-    for (let i = 1; i <= 3; i++) {
+      if (!service) throw lastErr;
+      // 채널 번호 대신 기능(쓰기/알림)으로 찾기
+      const chars = await service.getCharacteristics();
+      const isW = c => c.properties.writeWithoutResponse || c.properties.write;
+      writeChar = chars.find(c => isW(c) && /fa02|02fa/.test(c.uuid)) || chars.find(isW);
+      if (!writeChar) throw new Error('쓰기 가능한 채널을 찾지 못했어요');
+      log(`서비스 ${service.uuid.slice(0, 8)} / 쓰기 채널 ${writeChar.uuid.slice(0, 8)} 사용`);
       try {
-        log(`${device.name || '이름 없는 기기'}에 연결하는 중… (${i}번째 시도)`);
-        const server = await device.gatt.connect();
-        await sleep(600);
-        const found = await findWriteChar(server);
-        if (!found) {
-          log('명령을 보낼 채널(fa02)을 찾지 못했어요. 위의 "찾은 서비스" 내용을 알려주세요.', true);
-          manualDisconnect = true; device.gatt.disconnect();
-          return;
-        }
-        writeChar = found.w;
-        if (found.n) {
-          try {
-            await found.n.startNotifications();
-            found.n.addEventListener('characteristicvaluechanged', e => {
-              log('패널 응답: ' + hex(new Uint8Array(e.target.value.buffer)));
-            });
-          } catch (e) { log('응답 알림은 켜지 못했지만 명령은 보낼 수 있어요'); }
-        }
-        setConnected(true, device.name);
-        log('연결 완료');
-        return;
-      } catch (e) {
-        log(`연결 실패 (${e.name}): ${e.message}`, true);
-        await sleep(800);
-      }
+        const n = chars.find(c => c.properties.notify && c !== writeChar);
+        if (!n) throw new Error('no notify');
+        await n.startNotifications();
+        n.addEventListener('characteristicvaluechanged', e => {
+          const d = new Uint8Array(e.target.value.buffer);
+          if (d[2] === 0x05 && d[3] === 0x01) return; // 점 찍기 응답은 기록 생략
+          log('패널 응답: ' + hex(d));
+        });
+      } catch (e) { log('응답 알림은 켜지 못했지만 명령은 보낼 수 있어요'); }
+      setConnected(true, device.name);
+      log('연결 완료');
+    } catch (e) {
+      if (e.name === 'NotFoundError' && /cancel/i.test(e.message)) log('기기 선택을 취소했어요');
+      else log('연결 실패: ' + e.message, true);
+      setConnected(false);
     }
-    log('3번 모두 실패했어요. 패널 전원을 껐다 켜고 다시 해보세요.', true);
   }
 
-  async function send(bytes, label) {
-    if (!writeChar) return;
-    const data = new Uint8Array(bytes);
-    try {
-      if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(data);
-      else await writeChar.writeValue(data);
-      log(`${label} 보냄: ${hex(data)}`);
-    } catch (e) { log(`${label} 실패: ${e.message}`, true); }
+  async function writeRaw(data) {
+    if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(data);
+    else await writeChar.writeValue(data);
+  }
+
+  // 모든 명령은 한 줄로 세워서 하나씩 보냄 (동시에 보내면 블루투스가 거부함)
+  const queue = [];
+  let sending = false;
+  function enqueue(bytes, label) {
+    queue.push({ data: new Uint8Array(bytes), label });
+    pump();
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function pump() {
+    if (sending) return;
+    sending = true;
+    while (queue.length && writeChar) {
+      const { data, label } = queue.shift();
+      try {
+        await writeRaw(data);
+        if (label) log(`${label} 보냄: ${hex(data)}`);
+      } catch (e) {
+        log(`${label || '점 찍기'} 실패: ${e.message}`, true);
+        await sleep(60);
+      }
+      const px = queue.filter(q => !q.label).length;
+      $('queue').textContent = px ? `패널로 점 보내는 중… 남은 점 ${px}개` : '';
+      await sleep(12);
+    }
+    sending = false;
   }
 
   // 명령: [길이L, 길이H, 명령L, 명령H, 데이터]
   const powerCmd = on => [0x05, 0x00, 0x07, 0x01, on ? 1 : 0];
   const brightCmd = v => [0x05, 0x00, 0x04, 0x80, Math.max(1, Math.min(100, v))];
+  const diyCmd = on => [0x05, 0x00, 0x04, 0x01, on ? 1 : 0];
+  function pixelCmd(x, y, r, g, b) {
+    const fmt = document.querySelector('input[name=fmt]:checked').value;
+    return fmt === 'a'
+      ? [0x0a, 0x00, 0x05, 0x01, 0x00, r, g, b, x, y]
+      : [0x0a, 0x00, 0x05, 0x01, r, g, b, 0xff, x, y];
+  }
 
+  // ---------- 그림판 ----------
+  const COLORS = ['#FFFFFF', '#FF3040', '#FF9A1F', '#FFE033', '#34D46A', '#2FB8FF', '#6D6BFF', '#E25CFF'];
+  let color = COLORS[0], erasing = false, pen = 1;
+  let W = 96, H = 16, grid = [];
+  const board = $('board'), ctx = board.getContext('2d');
+  const CELL = 10;
+
+  function loadSize() {
+    try {
+      const s = JSON.parse(localStorage.getItem('panelSize') || 'null');
+      if (s) { $('width').value = s.w; $('height').value = s.h; }
+    } catch (e) {}
+  }
+  function resetBoard() {
+    W = +$('width').value; H = +$('height').value;
+    grid = Array.from({ length: H }, () => Array(W).fill(null));
+    board.width = W * CELL; board.height = H * CELL;
+    drawBoard();
+    try { localStorage.setItem('panelSize', JSON.stringify({ w: W, h: H })); } catch (e) {}
+  }
+  function drawBoard() {
+    ctx.fillStyle = '#120D2A';
+    ctx.fillRect(0, 0, board.width, board.height);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      ctx.beginPath();
+      ctx.arc(x * CELL + CELL / 2, y * CELL + CELL / 2, CELL * 0.36, 0, Math.PI * 2);
+      ctx.fillStyle = grid[y][x] || 'rgba(255,255,255,0.10)';
+      ctx.fill();
+    }
+  }
+  const toRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+  function paint(x, y) {
+    const c = erasing ? null : color;
+    if (grid[y][x] === c) return;
+    grid[y][x] = c;
+    ctx.fillStyle = '#120D2A';
+    ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    ctx.beginPath();
+    ctx.arc(x * CELL + CELL / 2, y * CELL + CELL / 2, CELL * 0.36, 0, Math.PI * 2);
+    ctx.fillStyle = c || 'rgba(255,255,255,0.10)';
+    ctx.fill();
+    if (writeChar) {
+      const [r, g, b] = c ? toRGB(c) : [0, 0, 0];
+      enqueue(pixelCmd(x, y, r, g, b));
+    }
+  }
+  function paintAt(evt) {
+    const rect = board.getBoundingClientRect();
+    const cx = Math.floor((evt.clientX - rect.left) / rect.width * W);
+    const cy = Math.floor((evt.clientY - rect.top) / rect.height * H);
+    const off = Math.floor((pen - 1) / 2);
+    for (let dy = 0; dy < pen; dy++) for (let dx = 0; dx < pen; dx++) {
+      const x = cx - off + dx, y = cy - off + dy;
+      if (x >= 0 && y >= 0 && x < W && y < H) paint(x, y);
+    }
+  }
+  let down = false;
+  board.addEventListener('pointerdown', e => { down = true; board.setPointerCapture(e.pointerId); paintAt(e); });
+  board.addEventListener('pointermove', e => { if (down) paintAt(e); });
+  ['pointerup', 'pointercancel'].forEach(t => board.addEventListener(t, () => down = false));
+
+  // 팔레트
+  const pal = $('palette');
+  COLORS.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'swatch'; b.style.background = c;
+    b.setAttribute('aria-label', `색 ${i + 1}`);
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.onclick = () => { color = c; erasing = false; selectSwatch(b); };
+    pal.appendChild(b);
+  });
+  const er = document.createElement('button');
+  er.className = 'swatch eraser'; er.textContent = '지우개';
+  er.setAttribute('aria-pressed', 'false');
+  er.onclick = () => { erasing = true; selectSwatch(er); };
+  pal.appendChild(er);
+  function selectSwatch(sel) { pal.querySelectorAll('.swatch').forEach(s => s.setAttribute('aria-pressed', s === sel ? 'true' : 'false')); }
+
+  document.querySelectorAll('[data-pen]').forEach(b => b.onclick = () => {
+    pen = +b.dataset.pen;
+    document.querySelectorAll('[data-pen]').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+  });
+
+  $('clearBtn').onclick = () => {
+    queue.splice(0, queue.length, ...queue.filter(q => q.label));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (grid[y][x]) { grid[y][x] = null; enqueue(pixelCmd(x, y, 0, 0, 0)); }
+    }
+    drawBoard();
+  };
+
+  $('borderBtn').onclick = () => {
+    const [r, g, b] = [0x30, 0xff, 0x60];
+    for (let x = 0; x < W; x++) { mark(x, 0); mark(x, H - 1); }
+    for (let y = 1; y < H - 1; y++) { mark(0, y); mark(W - 1, y); }
+    function mark(x, y) { grid[y][x] = '#30FF60'; enqueue(pixelCmd(x, y, r, g, b)); }
+    drawBoard();
+    log(`${W}×${H} 테두리를 보내는 중이에요`);
+  };
+
+  ['width', 'height'].forEach(id => $(id).onchange = () => {
+    queue.splice(0, queue.length, ...queue.filter(q => q.label));
+    resetBoard();
+  });
+
+  // ---------- 버튼 연결 ----------
   if (!navigator.bluetooth) {
     $('unsupported').hidden = false;
     $('connectBtn').disabled = true;
@@ -251,10 +418,15 @@
   }
   $('connectBtn').onclick = () => connect(false);
   $('connectAllBtn').onclick = () => connect(true);
-  $('onBtn').onclick = () => send(powerCmd(true), '켜기');
-  $('offBtn').onclick = () => send(powerCmd(false), '끄기');
+  $('onBtn').onclick = () => enqueue(powerCmd(true), '켜기');
+  $('offBtn').onclick = () => enqueue(powerCmd(false), '끄기');
   $('bright').oninput = e => $('brightVal').textContent = e.target.value;
-  $('bright').onchange = e => send(brightCmd(+e.target.value), `밝기 ${e.target.value}%`);
+  $('bright').onchange = e => enqueue(brightCmd(+e.target.value), `밝기 ${e.target.value}%`);
+  $('diyOnBtn').onclick = () => enqueue(diyCmd(true), '그리기 시작');
+  $('diyOffBtn').onclick = () => enqueue(diyCmd(false), '그리기 끝내기');
+
+  loadSize();
+  resetBoard();
 </script>
 </body>
 </html>
