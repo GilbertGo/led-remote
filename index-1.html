@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>내 LED 패널 리모컨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ECE9F4;
+    --ink: #241C4A;
+    --muted: #6B6590;
+    --panel: #221A45;
+    --led: #6D6BFF;
+    --led-glow: rgba(109,107,255,.55);
+    --amber: #FFB547;
+    --card: #FFFFFF;
+    --line: #D6D1E6;
+    --danger: #C8364B;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17122F; --ink: #EDEAF8; --muted: #A49FC4; --panel: #0E0A22;
+      --card: #221B45; --line: #3A3266;
+    }
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 18px 40px; }
+  h1 { font-size: 1.5rem; margin: 4px 0 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+  /* dot-matrix status display */
+  .display {
+    background: var(--panel); border-radius: 14px; padding: 14px;
+    display: grid; gap: 10px;
+  }
+  .dots {
+    height: 44px;
+    background-image: radial-gradient(circle, rgba(255,255,255,.12) 2.2px, transparent 2.6px);
+    background-size: 9px 9px;
+    border-radius: 6px;
+    transition: background-image .3s;
+  }
+  .display.on .dots {
+    background-image: radial-gradient(circle, var(--led) 2.4px, transparent 2.8px);
+    filter: drop-shadow(0 0 4px var(--led-glow));
+  }
+  .status { color: #CFCBEA; font-size: .95rem; }
+  .display.on .status { color: #fff; }
+
+  section { margin-top: 22px; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; font-weight: 600; }
+  button {
+    font: inherit; font-weight: 600; font-size: 1rem;
+    border: 0; border-radius: 12px; padding: 14px 16px; cursor: pointer;
+    min-height: 52px;
+  }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .primary { width: 100%; background: var(--led); color: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .on-btn { background: var(--amber); color: #3A2600; }
+  .off-btn { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); }
+  .link { background: none; color: var(--muted); padding: 8px 0; min-height: 0; font-weight: 400; text-decoration: underline; }
+
+  .bright { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .bright-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .bright-val { font-size: 1.4rem; font-weight: 700; }
+  input[type=range] { width: 100%; accent-color: var(--led); height: 32px; }
+
+  .log {
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; font-size: .82rem; color: var(--muted);
+    max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .warn { background: #FFF1D6; color: #5A3B00; border-radius: 12px; padding: 12px 14px; font-size: .92rem; }
+  .err { color: var(--danger); }
+  p.hint { color: var(--muted); font-size: .9rem; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>내 LED 패널 리모컨</h1>
+
+  <div class="display" id="display">
+    <div class="dots" aria-hidden="true"></div>
+    <div class="status" id="status">패널에 연결되지 않았어요</div>
+  </div>
+
+  <div class="warn" id="unsupported" hidden style="margin-top:16px">
+    이 브라우저는 블루투스 연결을 지원하지 않아요. 안드로이드 크롬에서 https:// 주소로 열어주세요.
+  </div>
+
+  <section>
+    <button class="primary" id="connectBtn">패널 연결하기</button>
+    <button class="link" id="connectAllBtn">목록에 패널이 안 보이면 전체 기기 보기</button>
+  </section>
+
+  <section>
+    <h2>전원</h2>
+    <div class="row">
+      <button class="on-btn" id="onBtn" disabled>켜기</button>
+      <button class="off-btn" id="offBtn" disabled>끄기</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>밝기</h2>
+    <div class="bright">
+      <div class="bright-top">
+        <span>현재 밝기</span>
+        <span class="bright-val"><span id="brightVal">50</span>%</span>
+      </div>
+      <input type="range" id="bright" min="1" max="100" value="50" disabled aria-label="밝기">
+    </div>
+    <p class="hint">슬라이더에서 손을 떼면 패널에 적용돼요.</p>
+  </section>
+
+  <section>
+    <h2>통신 기록</h2>
+    <div class="log" id="log" aria-live="polite">아직 기록이 없어요.</div>
+  </section>
+</main>
+
+<script>
+  // iPixel Color BLE 정보 (공개된 역분석 자료 기준)
+  // 서비스 UUID가 자료마다 달라서 후보를 여러 개 등록하고, 쓰기 채널(fa02)이 있는 서비스를 찾아요.
+  const SERVICES = [0x00fa, 0xfa00, 0xffe0, 0xfff0, 0xae00, 0xfee7];
+  const WRITE  = '0000fa02-0000-1000-8000-00805f9b34fb';
+  const NOTIFY = '0000fa03-0000-1000-8000-00805f9b34fb';
+
+  let device = null, writeChar = null, manualDisconnect = false;
+  const $ = id => document.getElementById(id);
+  const logEl = $('log');
+  let firstLog = true;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function log(msg, isErr) {
+    if (firstLog) { logEl.textContent = ''; firstLog = false; }
+    const t = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+    const line = document.createElement('div');
+    if (isErr) line.className = 'err';
+    line.textContent = `[${t}] ${msg}`;
+    logEl.prepend(line);
+  }
+  const hex = arr => Array.from(arr, b => b.toString(16).padStart(2, '0')).join(' ');
+
+  function setConnected(on, name) {
+    $('display').classList.toggle('on', on);
+    $('status').textContent = on ? `${name || '패널'}에 연결됐어요` : '패널에 연결되지 않았어요';
+    ['onBtn', 'offBtn', 'bright'].forEach(id => $(id).disabled = !on);
+    $('connectBtn').textContent = on ? '연결 끊기' : '패널 연결하기';
+  }
+
+  function onDisconnected() {
+    writeChar = null; setConnected(false);
+    if (!manualDisconnect) log('연결이 끊어졌어요');
+    manualDisconnect = false;
+  }
+
+  async function findWriteChar(server) {
+    const services = await server.getPrimaryServices();
+    log('찾은 서비스: ' + (services.map(s => s.uuid.slice(0, 8)).join(', ') || '없음'));
+    for (const svc of services) {
+      try {
+        const w = await svc.getCharacteristic(WRITE);
+        let n = null;
+        try { n = await svc.getCharacteristic(NOTIFY); } catch (e) {}
+        return { w, n };
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async function connect(acceptAll) {
+    if (device && device.gatt.connected) { manualDisconnect = true; device.gatt.disconnect(); return; }
+    try {
+      const opts = acceptAll
+        ? { acceptAllDevices: true, optionalServices: SERVICES }
+        : { filters: [{ namePrefix: 'LED_BLE' }], optionalServices: SERVICES };
+      const picked = await navigator.bluetooth.requestDevice(opts);
+      if (picked !== device) {
+        device = picked;
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+      }
+    } catch (e) {
+      if (e.name === 'NotFoundError') log('기기 선택을 취소했어요');
+      else log(`기기 찾기 실패 (${e.name}): ${e.message}`, true);
+      return;
+    }
+
+    // 안드로이드는 첫 연결이 자주 끊겨서 최대 3번 시도해요
+    for (let i = 1; i <= 3; i++) {
+      try {
+        log(`${device.name || '이름 없는 기기'}에 연결하는 중… (${i}번째 시도)`);
+        const server = await device.gatt.connect();
+        await sleep(600);
+        const found = await findWriteChar(server);
+        if (!found) {
+          log('명령을 보낼 채널(fa02)을 찾지 못했어요. 위의 "찾은 서비스" 내용을 알려주세요.', true);
+          manualDisconnect = true; device.gatt.disconnect();
+          return;
+        }
+        writeChar = found.w;
+        if (found.n) {
+          try {
+            await found.n.startNotifications();
+            found.n.addEventListener('characteristicvaluechanged', e => {
+              log('패널 응답: ' + hex(new Uint8Array(e.target.value.buffer)));
+            });
+          } catch (e) { log('응답 알림은 켜지 못했지만 명령은 보낼 수 있어요'); }
+        }
+        setConnected(true, device.name);
+        log('연결 완료');
+        return;
+      } catch (e) {
+        log(`연결 실패 (${e.name}): ${e.message}`, true);
+        await sleep(800);
+      }
+    }
+    log('3번 모두 실패했어요. 패널 전원을 껐다 켜고 다시 해보세요.', true);
+  }
+
+  async function send(bytes, label) {
+    if (!writeChar) return;
+    const data = new Uint8Array(bytes);
+    try {
+      if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(data);
+      else await writeChar.writeValue(data);
+      log(`${label} 보냄: ${hex(data)}`);
+    } catch (e) { log(`${label} 실패: ${e.message}`, true); }
+  }
+
+  // 명령: [길이L, 길이H, 명령L, 명령H, 데이터]
+  const powerCmd = on => [0x05, 0x00, 0x07, 0x01, on ? 1 : 0];
+  const brightCmd = v => [0x05, 0x00, 0x04, 0x80, Math.max(1, Math.min(100, v))];
+
+  if (!navigator.bluetooth) {
+    $('unsupported').hidden = false;
+    $('connectBtn').disabled = true;
+    $('connectAllBtn').disabled = true;
+  }
+  $('connectBtn').onclick = () => connect(false);
+  $('connectAllBtn').onclick = () => connect(true);
+  $('onBtn').onclick = () => send(powerCmd(true), '켜기');
+  $('offBtn').onclick = () => send(powerCmd(false), '끄기');
+  $('bright').oninput = e => $('brightVal').textContent = e.target.value;
+  $('bright').onchange = e => send(brightCmd(+e.target.value), `밝기 ${e.target.value}%`);
+</script>
+</body>
+</html>
