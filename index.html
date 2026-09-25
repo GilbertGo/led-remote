@@ -86,6 +86,16 @@
   details .box { margin-top: 8px; font-size: .92rem; }
   label.radio { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; }
 
+  /* 글자 보내기 */
+  .text-in {
+    width: 100%; font: inherit; font-size: 1.1rem; padding: 12px 14px; min-height: 48px;
+    border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink);
+  }
+  .text-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 10px; align-items: end; }
+  .text-grid label { display: grid; gap: 4px; font-size: .92rem; }
+  .text-grid select { width: 100%; }
+  input[type=color] { width: 64px; height: 48px; padding: 2px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); }
+
   .log {
     background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
     padding: 10px 12px; font-size: .82rem; color: var(--muted);
@@ -179,6 +189,36 @@
   </section>
 
   <section>
+    <h2>글자 보내기</h2>
+    <div class="box">
+      <input type="text" id="textInput" class="text-in" maxlength="100" value="안녕하세요 LED" aria-label="보낼 글자">
+      <div class="text-grid">
+        <label>글자 색 <input type="color" id="textColor" value="#ffffff"></label>
+        <label>움직임
+          <select id="textAnim">
+            <option value="0">가만히</option>
+            <option value="1" selected>왼쪽으로 흐르기</option>
+            <option value="2">오른쪽으로 흐르기</option>
+            <option value="5">깜빡이기</option>
+            <option value="6">숨 쉬듯 깜빡이기</option>
+          </select>
+        </label>
+      </div>
+      <div class="bright-top" style="margin-top:10px"><span>흐르는 빠르기</span><span id="textSpeedVal">80</span></div>
+      <input type="range" id="textSpeed" min="1" max="100" value="80" aria-label="흐르는 빠르기">
+      <div class="bright-top"><span>글자 크기</span><span><span id="textSizeVal">16</span>px</span></div>
+      <input type="range" id="textSize" min="10" max="18" value="16" aria-label="글자 크기">
+      <label class="radio"><input type="checkbox" id="textBold"> <span>굵은 글씨</span></label>
+    </div>
+    <p class="hint">미리보기 (패널에 켜질 점 모양이에요)</p>
+    <div class="board-wrap" style="overflow-x:auto"><canvas id="textPreview" aria-label="글자 미리보기" style="display:block;image-rendering:pixelated"></canvas></div>
+    <div class="queue" id="textInfo"></div>
+    <button class="on-btn needs-conn" id="sendTextBtn" disabled style="width:100%;margin-top:6px">패널에 글자 보내기</button>
+    <button class="plain" id="textToBoardBtn" style="width:100%;margin-top:10px">그림판에 옮기기 (가만히 있는 글자)</button>
+    <p class="hint">글자가 안 나오면 "그림판에 옮기기" → "패널로 한 번에 보내기"로도 보낼 수 있어요.</p>
+  </section>
+
+  <section>
     <h2>통신 기록</h2>
     <div class="log" id="log" aria-live="polite">아직 기록이 없어요.</div>
   </section>
@@ -253,14 +293,14 @@
         await n.startNotifications();
         n.addEventListener('characteristicvaluechanged', e => {
           const d = new Uint8Array(e.target.value.buffer);
-          if (imgState && d.length >= 5 && d[0] === 0x05) { // 이미지 전송 중 응답 (끝 바이트 00/01 = 받음, 03 = 완료)
-            log('이미지 응답: ' + hex(d));
+          if (imgState && d.length >= 5 && d[0] === 0x05) { // 이미지·글자 전송 중 응답 (끝 바이트 00/01 = 받음, 03 = 완료)
+            log(`${imgState.name} 응답: ${hex(d)}`);
             if (d[4] === 0 || d[4] === 1) imgState.win = true;
             else if (d[4] === 3) imgState.win = imgState.all = true;
             if (imgState.wake) imgState.wake();
             return;
           }
-          if (ackWaiter&& d[2] === ackWaiter.c2 && d[3] === ackWaiter.c3) ackWaiter.done(true);
+          if (ackWaiter && d[2] === ackWaiter.c2 && d[3] === ackWaiter.c3) ackWaiter.done(true);
           if (d[2] === 0x05 && d[3] === 0x01) return; // 점 찍기 응답은 기록 생략
           log('패널 응답: ' + hex(d));
         });
@@ -412,7 +452,7 @@
       ...chunk('IHDR', ihdr), ...chunk('IDAT', await zlib(raw)), ...chunk('IEND', [])]);
   }
 
-  let imgState = null; // 이미지 전송 중일 때 { win: 묶음 받음, all: 전체 완료, wake }
+  let imgState = null; // 이미지·글자 전송 중일 때 { name, win: 묶음 받음, all: 전체 완료, wake }
   async function waitImg(key, ms) {
     const end = performance.now() + ms;
     while (!imgState[key] && performance.now() < end) {
@@ -420,40 +460,125 @@
     }
     return imgState[key];
   }
-  async function sendImageOnce(png, piece) {
-    const size = u32le(png.length), crc = u32le(crc32(png));
-    imgState = { win: false, all: false, wake: null };
+  // 큰 데이터 공통 전송 형식. head: 이미지 = 02 00, 글자 = 00 01
+  async function sendFramedOnce(name, head, data, piece) {
+    const size = u32le(data.length), crc = u32le(crc32(data));
+    imgState = { name, win: false, all: false, wake: null };
     try {
-      for (let pos = 0, i = 0; pos < png.length; pos += 12288, i++) { // 12KB 묶음 단위
-        const part = png.subarray(pos, pos + 12288);
-        const frame = [0x02, 0x00, i === 0 ? 0x00 : 0x02, ...size, ...crc, 0x00, 0x00, ...part];
+      for (let pos = 0, i = 0; pos < data.length; pos += 12288, i++) { // 12KB 묶음 단위
+        const part = data.subarray(pos, pos + 12288);
+        const frame = [...head, i === 0 ? 0x00 : 0x02, ...size, ...crc, 0x00, 0x00, ...part];
         const len = frame.length + 2;
         const msg = new Uint8Array([len & 255, len >> 8, ...frame]);
-        if (i === 0) log(`이미지 머리 부분: ${hex(msg.subarray(0, 15))} … (${piece}바이트씩 ${Math.ceil(msg.length / piece)}번)`);
+        if (i === 0) log(`${name} 머리 부분: ${hex(msg.subarray(0, 15))} … (${piece}바이트씩 ${Math.ceil(msg.length / piece)}번)`);
         imgState.win = false;
         for (let off = 0; off < msg.length; off += piece) {
           try { await writeRaw(msg.subarray(off, off + piece)); }
           catch (e) { e.writeFail = true; throw e; }
         }
-        if (hasNotify && !(await waitImg('win', 8000))) throw new Error('패널이 이미지를 받았다는 응답이 없어요');
+        if (hasNotify && !(await waitImg('win', 8000))) throw new Error(`패널이 ${name}를 받았다는 응답이 없어요`);
       }
       if (hasNotify && !(await waitImg('all', 8000))) log('마지막 완료 응답(03)은 안 왔어요. 패널 화면을 확인해 주세요');
     } finally { imgState = null; }
   }
-  async function sendImageJob() {
-    const png = await boardToPng();
-    log(`그림 ${W}×${H}을 이미지(${png.length}바이트)로 보내는 중…`);
+  async function sendFramed(name, head, data) {
     if (!hasNotify) log('응답 알림이 꺼져 있어 완료 확인 없이 보내요');
     const t0 = performance.now();
     for (const piece of [244, 20]) { // 한 번에 244바이트가 안 되는 기기면 20바이트씩 다시 시도
-      try { await sendImageOnce(png, piece); break; }
+      try { await sendFramedOnce(name, head, data, piece); break; }
       catch (e) {
         if (!e.writeFail || piece === 20) throw e;
         log(`244바이트씩 보내기 실패(${e.message}) → 20바이트씩 다시 보내요`);
         await sleep(300);
       }
     }
-    log(`이미지 전송 끝, ${((performance.now() - t0) / 1000).toFixed(1)}초 걸림`);
+    log(`${name} 전송 끝, ${((performance.now() - t0) / 1000).toFixed(1)}초 걸림`);
+  }
+  async function sendImageJob() {
+    const png = await boardToPng();
+    log(`그림 ${W}×${H}을 이미지(${png.length}바이트)로 보내는 중…`);
+    await sendFramed('이미지', [0x02, 0x00], png);
+  }
+
+  // ---------- 글자 보내기 (패널 자체 글자 명령, iPixel-CLI send_text 방식) ----------
+  // 브라우저가 글자마다 16줄짜리 점 그림을 만들어 보내면, 흐르기·깜빡이기는 패널이 알아서 함
+  const TEXT_FONT = '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", sans-serif';
+  const glyphCanvas = document.createElement('canvas');
+  glyphCanvas.width = 32; glyphCanvas.height = 16;
+  const gctx = glyphCanvas.getContext('2d', { willReadFrequently: true });
+  // 한글·한자 등 넓은 글자는 16칸, 영문·숫자는 8칸
+  const isWide = ch => /[ᄀ-ᇿ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/.test(ch);
+
+  function textFont() { return `${$('textBold').checked ? 'bold ' : ''}${$('textSize').value}px ${TEXT_FONT}`; }
+  // 글자 하나 → { w: 8 또는 16, rows: 16줄 × w칸 (true = 켜짐) }
+  function renderGlyph(ch, font) {
+    gctx.clearRect(0, 0, 32, 16);
+    gctx.font = font; gctx.fillStyle = '#fff'; gctx.textBaseline = 'alphabetic';
+    const cw = gctx.measureText(ch).width;
+    const w = isWide(ch) || cw > 12 ? 16 : 8; // W, M처럼 아주 넓은 영문도 16칸
+    const m = gctx.measureText('가Ag'); // 글자 줄을 세로 가운데에 맞춤
+    const y = Math.round((16 - (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent)) / 2 + m.actualBoundingBoxAscent);
+    const sx = w === 8 && cw > 8 ? 8 / cw : 1; // 8칸보다 조금 넓은 영문은 옆으로 살짝 줄임
+    gctx.setTransform(sx, 0, 0, 1, 0, 0);
+    gctx.fillText(ch, Math.round((w / sx - cw) / 2), y);
+    gctx.setTransform(1, 0, 0, 1, 0, 0);
+    const d = gctx.getImageData(0, 0, w, 16).data;
+    const rows = [];
+    for (let yy = 0; yy < 16; yy++) {
+      const r = [];
+      for (let x = 0; x < w; x++) r.push(d[(yy * w + x) * 4 + 3] > 100); // 흐릿한 가장자리는 끔
+      rows.push(r);
+    }
+    return { w, rows };
+  }
+  const textGlyphs = () => Array.from($('textInput').value).map(ch => renderGlyph(ch, textFont()));
+
+  // 글자 명령 데이터 = [글자 수] + 설정 13바이트 + 글자마다 [폭(00=8칸, 01=16칸), R, G, B, 점 그림]
+  // 점 그림: 한 줄에 8칸당 1바이트, 왼쪽 칸이 가장 낮은 비트
+  function buildTextPayload(glyphs, anim, speed, [r, g, b]) {
+    if (anim === 2) glyphs = glyphs.slice().reverse(); // 오른쪽으로 흐를 때는 거꾸로 보냄
+    const out = [glyphs.length, 0x00, 0x01, 0x01, anim, speed, 0x00, r, g, b, 0x00, 0x00, 0x00, 0x00];
+    for (const { w, rows } of glyphs) {
+      out.push(w === 16 ? 0x01 : 0x00, r, g, b);
+      for (const row of rows) for (let k = 0; k < w; k += 8) {
+        let byte = 0;
+        for (let i = 0; i < 8; i++) if (row[k + i]) byte |= 1 << i;
+        out.push(byte);
+      }
+    }
+    return new Uint8Array(out);
+  }
+
+  const prev = $('textPreview'), pctx = prev.getContext('2d');
+  const PCELL = 6;
+  function drawTextPreview() {
+    const glyphs = textGlyphs();
+    const cols = Math.max(W, glyphs.reduce((s, g) => s + g.w, 0));
+    prev.width = cols * PCELL; prev.height = 16 * PCELL;
+    prev.style.width = (cols / W * 100) + '%';
+    pctx.fillStyle = '#120D2A'; pctx.fillRect(0, 0, prev.width, prev.height);
+    const color = $('textColor').value;
+    let x0 = 0;
+    for (const { w, rows } of glyphs) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < w; x++) {
+        pctx.beginPath();
+        pctx.arc((x0 + x) * PCELL + PCELL / 2, y * PCELL + PCELL / 2, PCELL * 0.38, 0, Math.PI * 2);
+        pctx.fillStyle = rows[y][x] ? color : 'rgba(255,255,255,0.10)';
+        pctx.fill();
+      }
+      x0 += w;
+    }
+    $('textInfo').textContent = glyphs.length
+      ? `글자 ${glyphs.length}개, 가로 ${x0}칸${x0 > W ? ` (패널 ${W}칸보다 길어요 — 흐르기로 보내면 다 보여요)` : ''}`
+      : '';
+  }
+
+  async function sendTextJob() {
+    const glyphs = textGlyphs();
+    const anim = +$('textAnim').value, speed = +$('textSpeed').value;
+    const payload = buildTextPayload(glyphs, anim, speed, toRGB($('textColor').value));
+    log(`글자 ${glyphs.length}개를 보내는 중… (움직임 ${anim}, 빠르기 ${speed}, 데이터 ${payload.length}바이트)`);
+    await sendFramed('글자', [0x00, 0x01], payload);
   }
 
   // ---------- 그림판 ----------
@@ -577,6 +702,7 @@
   ['width', 'height'].forEach(id => $(id).onchange = () => {
     queue.splice(0, queue.length, ...queue.filter(q => q.label));
     resetBoard();
+    drawTextPreview();
   });
 
   // ---------- 버튼 연결 ----------
@@ -594,13 +720,36 @@
     queue.splice(0, queue.length, ...queue.filter(q => q.label)); // 남은 점은 이미지에 포함되니 버림
     enqueueJob(sendImageJob, '이미지 보내기');
   };
-  $('gap').oninput =e => { PIXEL_GAP = +e.target.value; $('gapVal').textContent = PIXEL_GAP; };
-  $('bright').onchange =e => enqueue(brightCmd(+e.target.value), `밝기 ${e.target.value}%`);
+  $('sendTextBtn').onclick = () => {
+    if (!$('textInput').value.length) { log('보낼 글자를 먼저 입력해 주세요', true); return; }
+    enqueueJob(sendTextJob, '글자 보내기');
+  };
+  $('textToBoardBtn').onclick = () => {
+    const color = $('textColor').value.toUpperCase();
+    grid = Array.from({ length: H }, () => Array(W).fill(null));
+    let x0 = 0;
+    for (const { w, rows } of textGlyphs()) {
+      for (let y = 0; y < Math.min(16, H); y++) for (let x = 0; x < w; x++) {
+        if (rows[y][x] && x0 + x < W) grid[y][x0 + x] = color;
+      }
+      x0 += w;
+    }
+    drawBoard();
+    log('글자를 그림판에 옮겼어요. "패널로 한 번에 보내기"를 누르면 패널에 나와요');
+  };
+  ['textInput', 'textColor', 'textSize'].forEach(id => $(id).addEventListener('input', drawTextPreview));
+  $('textBold').onchange = drawTextPreview;
+  $('textSize').addEventListener('input', e => $('textSizeVal').textContent = e.target.value);
+  $('textSpeed').oninput = e => $('textSpeedVal').textContent = e.target.value;
+  $('gap').oninput = e => { PIXEL_GAP = +e.target.value; $('gapVal').textContent = PIXEL_GAP; };
+  $('bright').onchange = e => enqueue(brightCmd(+e.target.value), `밝기 ${e.target.value}%`);
   $('diyOnBtn').onclick = () => enqueue(diyCmd(true), '그리기 시작');
   $('diyOffBtn').onclick = () => enqueue(diyCmd(false), '그리기 끝내기');
 
   loadSize();
   resetBoard();
+  drawTextPreview();
+  if (document.fonts) document.fonts.ready.then(drawTextPreview);
 </script>
 </body>
 </html>

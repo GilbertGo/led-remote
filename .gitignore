@@ -1,0 +1,3 @@
+# ESP32 와이파이 비밀번호 (절대 올리지 않음)
+esp32/**/secrets.h
+esp32/**/build/
