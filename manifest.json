@@ -1,0 +1,12 @@
+{
+  "name": "우리집 LED 전광판",
+  "short_name": "우리집 전광판",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ECE9F4",
+  "theme_color": "#221A45",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
